@@ -110,3 +110,38 @@ test('iterable', () => {
         );
     }
 });
+
+test('flatMap unwraps 1 nested Result', () => {
+    const r = new Ok(3);
+
+    r.map((v) => v * 2)
+        .flatMap(() => new Ok('NestedValue'))
+        .map((s) => expect(s).toBe('NestedValue'));
+});
+
+test('flatMap works with deeply nested Ok Results', () => {
+    const r = new Ok(3);
+
+    r.map((v) => v * 2)
+        .flatMap(() => new Ok(new Ok(new Ok('DeeplyNestedValue'))))
+        .map((v) => expect(v).toBe('DeeplyNestedValue'));
+});
+
+test('flatMap unwraps deeply nested Ok Results and multiple FlatMaps', () => {
+    const r = new Ok(3);
+
+    r.map((v) => v * 2)
+        .flatMap(() => new Ok(new Ok(new Ok('DeeplyNestedValue'))))
+        .map((v) => expect(v).toBe('DeeplyNestedValue'))
+        .flatMap(() => new Ok('Deeply nested and multiple fmaps'))
+        .flatMap((v) => new Ok(new Ok(new Ok(v))))
+        .map((v) => expect(v).toBe('Deeply nested and multiple fmaps'));
+});
+
+test('flatMap unwraps multiple nested OkResults until it reaches an error', () => {
+    const r = new Ok(3);
+
+    r.map((v) => v * 2)
+        .flatMap(() => new Ok(new Ok(new Err('SimpleError'))))
+        .mapErr((s) => expect(s).toBe('SimpleError'));
+});

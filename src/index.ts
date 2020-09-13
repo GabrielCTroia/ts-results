@@ -72,6 +72,33 @@ interface BaseResult<T, E> extends Iterable<T extends Iterable<infer U> ? U : ne
 // @ts-ignore
 export declare function Err<E>(val: E): Err<E>;
 
+const isResultType = <T, E>(v: unknown): v is Result<T, E> => {
+    return (
+        typeof v === 'object' &&
+        v !== null &&
+        'val' in v &&
+        'ok' in v &&
+        'map' in v &&
+        'mapErr' in v
+    );
+};
+
+const recursiveUnwrap = <T2, E2>(r: Result<T2, E2>): Result<T2, E2> => {
+    // If Error just return it
+    if (!r.ok) {
+        return r;
+    }
+
+    const unwrapped = r.val;
+
+    // If not Result just wrap it & return it
+    if (!isResultType(unwrapped)) {
+        return new Ok(unwrapped) as Result<T2, E2>;
+    }
+
+    return recursiveUnwrap<T2, E2>(unwrapped as Result<T2, E2>);
+};
+
 /**
  * Contains the error value
  */
@@ -132,6 +159,10 @@ export class Err<E> implements BaseResult<never, E> {
 
     mapErr<E2>(mapper: (err: E) => E2): Err<E2> {
         return new Err(mapper(this.val));
+    }
+
+    flatMap(mapper: (val: never) => Result<never, E>): Result<never, E> {
+        return this;
     }
 }
 
@@ -216,8 +247,18 @@ export class Ok<T> implements BaseResult<T, never> {
     safeUnwrap(): T {
         return this.val;
     }
+
+    flatMap<T2, E2>(mapper: (val: T) => Err<E2>): Err<E2>;
+    flatMap<T2>(mapper: (val: T) => Ok<T2>): Ok<FlattenResults<T2>>;
+    flatMap<T2, E2>(mapper: (val: T) => any): any {
+        return recursiveUnwrap(mapper(this.val));
+    }
 }
 
+type FlattenResults<T> = {
+    0: T;
+    1: T extends BaseResult<infer U, any> ? FlattenResults<U> : never;
+}[T extends BaseResult<any, any> ? 1 : 0];
 
 export type Result<T, E> = (Ok<T> | Err<E>) & BaseResult<T, E>;
 
